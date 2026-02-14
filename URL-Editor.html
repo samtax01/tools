@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>URL Editor — Compare Query Params</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* small extras */
+    html,body,#app{height:100%}
+    textarea{resize:vertical}
+    .card-scroll{max-height:420px;overflow:auto}
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <div id="app" class="p-4 md:p-6 max-w-7xl mx-auto">
+    <header class="flex items-center justify-between gap-4">
+      <h1 class="text-2xl md:text-3xl font-semibold">URL Editor — Compare Query Params</h1>
+      <div class="flex items-center gap-2">
+        <button id="add-url" class="bg-indigo-600 text-white px-3 py-1.5 rounded shadow-sm hover:bg-indigo-700">Add New URL</button>
+        <button id="share-link" class="bg-white border border-gray-200 px-3 py-1.5 rounded shadow-sm hover:shadow">Share</button>
+        <button id="reset" class="text-sm text-gray-500 hover:text-gray-700">Reset</button>
+      </div>
+    </header>
+
+    <main class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <section class="lg:col-span-2 space-y-4">
+        <div id="cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <aside class="space-y-4">
+        <div class="bg-gradient-to-br from-blue-100 to-green-100 p-4 rounded shadow-md border border-green-200">
+          <h3 class="font-medium text-green-800">Analyse</h3>
+          <p class="text-sm text-green-700 mt-1">Shows common and unique query keys across all URLs.</p>
+          <div id="analysis" class="mt-3 text-sm space-y-2"></div>
+        </div>
+
+        <div class="bg-gradient-to-br from-purple-100 to-pink-100 p-4 rounded shadow-md border border-purple-200">
+          <h3 class="font-medium text-purple-800">How to use</h3>
+          <ol class="mt-2 text-sm list-decimal list-inside text-purple-700 space-y-1">
+            <li>Paste or type a URL into a card's textarea and press <em>Apply</em>.</li>
+            <li>Edit query param values inline — the main URL updates automatically.</li>
+            <li>Add / remove params with the + / trash icons.</li>
+            <li>Click <strong>Share</strong> to copy a link encoding all URLs to your clipboard.</li>
+            <li>Open the page with <code>?url=...&url=...</code> to preload URLs.</li>
+          </ol>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="mt-6 text-xs text-gray-500">Compact, responsive and editable single-page URL comparator. Built with plain HTML, Tailwind and vanilla JS.</footer>
+  </div>
+
+  <template id="url-card-template">
+    <div class="bg-white p-3 rounded shadow-sm flex flex-col h-full">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <div class="text-sm text-gray-600">URL</div>
+          <div class="text-xs text-gray-400">Editable. Updates reflect below.</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="apply-btn text-xs px-2 py-1 bg-green-600 text-white rounded">Apply</button>
+          <button class="duplicate-btn text-xs px-2 py-1 bg-yellow-400 text-black rounded">Dup</button>
+          <button class="remove-btn text-xs px-2 py-1 bg-red-50 text-red-600 rounded">Del</button>
+        </div>
+      </div>
+
+      <textarea class="main-url mt-2 p-2 border border-gray-200 rounded text-sm" rows="6"></textarea>
+
+      <div class="mt-3 flex items-center justify-between">
+        <div class="text-sm font-medium">Path & Params</div>
+        <button class="add-param text-xs px-2 py-1 bg-indigo-600 text-white rounded">+ Param</button>
+      </div>
+
+      <div class="card-scroll mt-2 space-y-2">
+        <div class="path-info text-xs text-gray-600 break-all"></div>
+        <div class="params-list space-y-2 mt-2"></div>
+      </div>
+
+      <div class="mt-3 flex items-center gap-2 text-sm">
+        <div class="flex-1 text-gray-600">Preview</div>
+        <button class="copy-preview px-2 py-1 text-xs border rounded">Copy</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // --- Utilities ---
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    function parseUrlSafe(str) {
+      try { return new URL(str); } catch (e) { // try to add protocol
+        try { return new URL('https://' + str); } catch (e2) { return null; }
+      }
+    }
+
+    // Manage cards
+    const cardsContainer = document.getElementById('cards');
+    const addUrlBtn = document.getElementById('add-url');
+    const analysisEl = document.getElementById('analysis');
+    const shareBtn = document.getElementById('share-link');
+    const resetBtn = document.getElementById('reset');
+
+    let cards = []; // {id, root}
+    let idSeq = 1;
+
+    function createCard(initialUrl = '', isDefault = false) {
+      const tpl = document.getElementById('url-card-template');
+      const node = tpl.content.firstElementChild.cloneNode(true);
+      const id = 'card-' + (idSeq++);
+      node.dataset.id = id;
+
+      const mainUrlTextarea = $('.main-url', node);
+      const applyBtn = $('.apply-btn', node);
+      const removeBtn = $('.remove-btn', node);
+      const duplicateBtn = $('.duplicate-btn', node);
+      const addParamBtn = $('.add-param', node);
+      const paramsList = $('.params-list', node);
+      const pathInfo = $('.path-info', node);
+      const copyPreview = $('.copy-preview', node);
+
+      mainUrlTextarea.value = initialUrl;
+
+      function renderFromUrl(urlStr) {
+        const u = parseUrlSafe(urlStr);
+        paramsList.innerHTML = '';
+        if (!u) {
+          pathInfo.textContent = 'Invalid URL — start with https:// or add host';
+          updatePreview();
+          return;
+        }
+        // path info
+        pathInfo.innerHTML = `<strong>Origin:</strong> ${u.origin} <br/><strong>Path:</strong> ${u.pathname}`;
+
+        // params
+        const entries = Array.from(u.searchParams.entries());
+        if (entries.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'text-xs text-gray-500';
+          empty.textContent = 'No query params';
+          paramsList.appendChild(empty);
+        } else {
+          entries.forEach(([k,v]) => {
+            const row = buildParamRow(k,v);
+            paramsList.appendChild(row);
+          });
+        }
+      }
+
+      function buildParamRow(key='', value=''){
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2';
+        row.innerHTML = `
+          <input class="key-input flex-none w-28 text-xs p-1 border rounded" value="${escapeHtml(key)}" />
+          <span class="text-xs text-gray-400">=</span>
+          <input class="value-input flex-1 text-xs p-1 border rounded" value="${escapeHtml(value)}" />
+          <button class="del-param p-1 text-red-600 text-xs">🗑</button>
+        `;
+        // events
+        const keyIn = $('.key-input', row);
+        const valIn = $('.value-input', row);
+        const delBtn = $('.del-param', row);
+
+        function commit() { // update main textarea value
+          const u = parseUrlSafe(mainUrlTextarea.value);
+          // ensure we have a URL
+          let base;
+          if (!u) {
+            // try to create from current text by using https://
+            base = parseUrlSafe(mainUrlTextarea.value) || new URL('https://example.com');
+          } else base = u;
+
+          // rebuild params from rows
+          const params = [];
+          $$('.params-list > div', node).forEach(r => {
+            const k = r.querySelector('.key-input')?.value?.trim();
+            const v = r.querySelector('.value-input')?.value ?? '';
+            if (k) params.push([k, v]);
+          });
+          const newUrl = new URL(base.href);
+          newUrl.search = '';
+          params.forEach(([k,v]) => newUrl.searchParams.append(k, v));
+          mainUrlTextarea.value = newUrl.href;
+          renderFromUrl(mainUrlTextarea.value);
+          updateAnalysis();
+        }
+
+        keyIn.addEventListener('change', commit);
+        valIn.addEventListener('input', commit);
+        delBtn.addEventListener('click', () => { row.remove(); commit(); });
+
+        return row;
+      }
+
+      function updatePreview(){
+        // update preview area
+        const u = parseUrlSafe(mainUrlTextarea.value);
+        copyPreview.textContent = u ? 'Copy' : 'Copy (invalid)';
+      }
+
+      // actions
+      applyBtn.addEventListener('click', () => {
+        renderFromUrl(mainUrlTextarea.value);
+        updateAnalysis();
+      });
+
+      duplicateBtn.addEventListener('click', () => {
+        const val = mainUrlTextarea.value;
+        createCard(val);
+      });
+
+      removeBtn.addEventListener('click', () => {
+        node.remove();
+        cards = cards.filter(c => c.id !== id);
+        updateAnalysis();
+      });
+
+      addParamBtn.addEventListener('click', () => {
+        const newRow = buildParamRow('key','value');
+        paramsList.appendChild(newRow);
+        // commit immediately
+        paramsList.querySelectorAll('.value-input').forEach(i => i.dispatchEvent(new Event('input')));
+      });
+
+      copyPreview.addEventListener('click', () => {
+        navigator.clipboard.writeText(mainUrlTextarea.value).then(()=>{
+          copyPreview.textContent = 'Copied!';
+          setTimeout(()=> copyPreview.textContent = 'Copy', 1200);
+        }).catch(()=>{
+          alert('Unable to copy — try selecting manually');
+        })
+      });
+
+      // when textarea edits, keep preview and allow apply
+      mainUrlTextarea.addEventListener('input', () => updatePreview());
+
+      // initial render
+      if (initialUrl) renderFromUrl(initialUrl);
+
+      // mount
+      cardsContainer.appendChild(node);
+      cards.push({id, root: node, textarea: mainUrlTextarea});
+      updateAnalysis();
+      return id;
+    }
+
+    function escapeHtml(s){ return (s+'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;') }
+
+    function getAllUrls(){
+      return cards.map(c=> c.root.querySelector('.main-url').value).filter(Boolean);
+    }
+
+    function updateAnalysis(){
+      const urls = getAllUrls().map(u => parseUrlSafe(u)).filter(Boolean);
+      // gather keys set
+      const keySets = urls.map(u => new Set(Array.from(u.searchParams.keys())));
+      const allKeys = new Set(); keySets.forEach(s=> s.forEach(k=> allKeys.add(k)));
+
+      // common keys (in all URLS)
+      const common = Array.from(allKeys).filter(k => keySets.length>0 && keySets.every(s => s.has(k)));
+      const uniquePerUrl = urls.map(u => {
+        const s = new Set(Array.from(u.searchParams.keys()));
+        return Array.from(s).filter(k => !common.includes(k));
+      });
+
+      analysisEl.innerHTML = '';
+      const tot = document.createElement('div'); tot.className='text-sm text-gray-600'; tot.textContent = `URLs loaded: ${urls.length}`; analysisEl.appendChild(tot);
+      const com = document.createElement('div'); com.className='mt-2';
+      com.innerHTML = `<div class='text-xs text-gray-700 font-medium'>Common keys (${common.length})</div>`;
+      const cl = document.createElement('div'); cl.className='text-xs text-gray-500 mt-1'; cl.textContent = common.length ? common.join(', ') : '— none —';
+      com.appendChild(cl);
+      analysisEl.appendChild(com);
+
+      // unique list
+      uniquePerUrl.forEach((arr, idx) => {
+        const block = document.createElement('div'); block.className='mt-2';
+        block.innerHTML = `<div class='text-xs text-gray-700 font-medium'>URL ${idx+1} unique</div>`;
+        const txt = document.createElement('div'); txt.className='text-xs text-gray-500 mt-1'; txt.textContent = arr.length ? arr.join(', ') : '— none —';
+        block.appendChild(txt);
+        analysisEl.appendChild(block);
+      });
+
+      // show table of keys vs urls
+      if (allKeys.size) {
+        const tableWrap = document.createElement('div'); tableWrap.className='mt-3 overflow-auto';
+        const table = document.createElement('table'); table.className='text-xs w-full border-collapse';
+        const header = document.createElement('tr'); header.innerHTML = `<th class='text-left pr-2 pb-1'>Key</th>` + urls.map((u,i)=> `<th class='text-left pr-2 pb-1'>U${i+1}</th>`).join('');
+        table.appendChild(header);
+        Array.from(allKeys).sort().forEach(k => {
+          const tr = document.createElement('tr');
+          const tdk = document.createElement('td'); tdk.className='pr-2'; tdk.textContent = k;
+          tr.appendChild(tdk);
+          urls.forEach(u => {
+            const td = document.createElement('td');
+            td.className='pr-2';
+            td.textContent = u.searchParams.get(k) ?? '—';
+            tr.appendChild(td);
+          });
+          table.appendChild(tr);
+        });
+        tableWrap.appendChild(table);
+        analysisEl.appendChild(tableWrap);
+      }
+    }
+
+    // share link generation — encode all urls into multiple url params
+    shareBtn.addEventListener('click', async () => {
+      const urls = getAllUrls().filter(Boolean);
+      if (!urls.length) { alert('No URLs to share'); return; }
+      const base = location.origin + location.pathname;
+      const params = new URLSearchParams();
+      urls.forEach(u => params.append('url', u));
+      const share = base + '?' + params.toString();
+      try{
+        await navigator.clipboard.writeText(share);
+        shareBtn.textContent = 'Copied share link';
+        setTimeout(()=> shareBtn.textContent = 'Share', 1500);
+      }catch(e){ prompt('Share link (copy manually):', share); }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Remove all cards and start fresh?')) return;
+      cardsContainer.innerHTML = '';
+      cards = [];
+      idSeq = 1;
+      createCard('', true);
+      updateAnalysis();
+    });
+
+    addUrlBtn.addEventListener('click', ()=> createCard(''));
+
+    // initialize from query param
+    function initFromLocation(){
+      const qs = new URLSearchParams(location.search);
+      const given = [];
+      // support repeated url= or urls=
+      qs.getAll('url').forEach(v => given.push(v));
+      qs.getAll('u').forEach(v => given.push(v));
+      // also support single param 'urls' comma separated
+      const multi = qs.get('urls'); if (multi) multi.split(',').map(s=>s.trim()).filter(Boolean).forEach(v=>given.push(v));
+
+      if (given.length) {
+        given.forEach((g,i)=> createCard(g, i===0));
+      } else {
+        // default empty card
+        createCard('', true);
+      }
+    }
+
+    // initial
+    initFromLocation();
+
+    // keep analysis reactive: observe textarea apply buttons? We'll update every 1s
+    setInterval(updateAnalysis, 1000);
+
+    // helper: parse on paste of URL in location
+    window.addEventListener('popstate', () => {
+      // noop
+    })
+
+  </script>
+</body>
+</html>

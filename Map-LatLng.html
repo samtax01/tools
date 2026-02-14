@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lat/Lng Map Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body class="flex h-screen bg-gray-100">
+    <div id="sidebar" class="w-1/4 bg-white shadow-md p-4 overflow-y-auto">
+        <h3 class="text-lg font-semibold mb-4">Visited Locations</h3>
+        <button onclick="clearHistory()" class="mb-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 w-full">Clear All</button>
+        <div id="history" class="space-y-2"></div>
+    </div>
+    <div id="map-container" class="flex-1 flex flex-col p-6">
+        <h2 class="text-2xl font-bold mb-4">Enter Latitude and Longitude</h2>
+        <div class="flex space-x-2 mb-4">
+            <input type="text" id="lat" placeholder="Latitude" class="p-2 border rounded w-1/3">
+            <input type="text" id="lng" placeholder="Longitude" class="p-2 border rounded w-1/3">
+            <button onclick="showLocation()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Show Location</button>
+        </div>
+        <div id="map" class="flex-1 w-full rounded shadow-md"></div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        let map = L.map('map').setView([45.4954, -73.5574], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        let marker = L.marker([45.4954, -73.5574]).addTo(map);
+
+        function resizeMap() {
+            document.getElementById('map').style.height = `${window.innerHeight - 150}px`;
+            map.invalidateSize();
+        }
+        window.addEventListener('resize', resizeMap);
+        resizeMap();
+        
+        function getQueryParams() {
+            let params = new URLSearchParams(window.location.search);
+            return {
+                lat: parseFloat(params.get('lat')),
+                lng: parseFloat(params.get('lng'))
+            };
+        }
+        
+        function showLocation() {
+            let lat = parseFloat(document.getElementById('lat').value);
+            let lng = parseFloat(document.getElementById('lng').value);
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.setView([lat, lng], 13);
+                marker.setLatLng([lat, lng]).bindPopup("Loading location info...").openPopup();
+                
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let locationInfo = data.display_name || "Location information not available";
+                        marker.bindPopup(`<strong>Latitude:</strong> ${lat}<br>
+                                          <strong>Longitude:</strong> ${lng}<br>
+                                          <strong>Location:</strong> ${locationInfo}`).openPopup();
+                        saveToHistory(lat, lng, locationInfo);
+                    })
+                    .catch(error => {
+                        console.error("Error fetching location data:", error);
+                        marker.bindPopup(`<strong>Latitude:</strong> ${lat}<br>
+                                          <strong>Longitude:</strong> ${lng}<br>
+                                          <strong>Location:</strong> Unable to retrieve location info`).openPopup();
+                    });
+            } else {
+                alert("Please enter valid latitude and longitude values.");
+            }
+        }
+        
+        function saveToHistory(lat, lng, location) {
+            let history = JSON.parse(localStorage.getItem('locationHistory')) || [];
+            let exists = history.some(entry => entry.lat === lat && entry.lng === lng);
+            if (!exists) {
+                history.push({ lat, lng, location });
+                localStorage.setItem('locationHistory', JSON.stringify(history));
+                updateHistoryUI();
+            }
+        }
+        
+        function deleteHistoryItem(index) {
+            let history = JSON.parse(localStorage.getItem('locationHistory')) || [];
+            history.splice(index, 1);
+            localStorage.setItem('locationHistory', JSON.stringify(history));
+            updateHistoryUI();
+        }
+        
+        function clearHistory() {
+            localStorage.removeItem('locationHistory');
+            updateHistoryUI();
+        }
+        
+        function updateHistoryUI() {
+            let history = JSON.parse(localStorage.getItem('locationHistory')) || [];
+            let historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = '';
+            history.forEach((entry, index) => {
+                let div = document.createElement('div');
+                div.className = 'history-item p-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer flex justify-between items-center';
+                div.innerHTML = `<div onclick="setLocation(${entry.lat}, ${entry.lng})">
+                                    <strong>${entry.location}</strong><br>Lat: ${entry.lat}, Lng: ${entry.lng}
+                                </div>
+                                <button onclick="deleteHistoryItem(${index})" class="text-red-500 hover:text-red-700">✖</button>`;
+                historyDiv.appendChild(div);
+            });
+        }
+        
+        function setLocation(lat, lng) {
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+            showLocation();
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            updateHistoryUI();
+            let params = getQueryParams();
+            if (!isNaN(params.lat) && !isNaN(params.lng)) {
+                document.getElementById('lat').value = params.lat;
+                document.getElementById('lng').value = params.lng;
+                showLocation();
+            }
+        });
+    </script>
+</body>
+</html>

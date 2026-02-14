@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Page Script Tester</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .code-editor {
+            position: relative;
+            min-height: 150px;
+            overflow: auto;
+            background-color: #282c34;
+            border-radius: 0.375rem;
+        }
+        #customCode {
+            white-space: pre;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            min-height: 150px;
+            padding: 1rem;
+            color: #abb2bf;
+            outline: none;
+            caret-color: white;
+            line-height: 1.5;
+        }
+        #customCode::selection {
+            background-color: rgba(128, 203, 196, 0.3);
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 5px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .show-toast {
+            opacity: 1;
+        }
+        /* Sidebar styles */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background-color: white;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            overflow-y: auto;
+            transition: right 0.3s ease-in-out;
+            padding: 1.5rem;
+        }
+        .sidebar.open {
+            right: 0;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .sidebar-toggle:hover {
+            transform: scale(1.05);
+        }
+        .sidebar-toggle i {
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+        .sidebar.open + .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+        .main-content {
+            transition: margin-right 0.3s ease-in-out;
+        }
+        .main-content.sidebar-open {
+            margin-right: 400px;
+        }
+        /* Tooltip styles */
+        .tooltip {
+            position: absolute;
+            background-color: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 300px;
+            word-break: break-all;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .tooltip.tooltip-bottom::after {
+            top: auto;
+            bottom: 100%;
+            border-color: transparent transparent #333 transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <!-- Sidebar Toggle Button -->
+    <button id="sidebarToggle" class="sidebar-toggle">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+    
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <h1 class="text-2xl font-bold mb-6">Script Tools</h1>
+        
+        <!-- Script Injector Section -->
+        <div class="mb-6">
+            <h2 class="text-xl font-bold mb-4">Script Injector</h2>
+            
+            <div class="grid grid-cols-1 gap-4 mb-4">
+                <div>
+                    <label for="scriptName" class="block text-sm font-medium text-gray-700 mb-1">Script Name</label>
+                    <input id="scriptName" type="text" placeholder="Enter a name for your script" 
+                        class="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="scriptUrl" class="block text-sm font-medium text-gray-700 mb-1">Script URL (Optional)</label>
+                    <input id="scriptUrl" type="text" placeholder="Enter JavaScript Script URL" 
+                        class="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <div>
+                <label for="customCodeContainer" class="block text-sm font-medium text-gray-700 mb-1">Custom JavaScript</label>
+                <div id="customCodeContainer" class="relative border border-gray-300 rounded">
+                    <textarea id="customCode" style="height:300px" class="w-full code-editor language-javascript p-4" spellcheck="false">// Enter your custom JavaScript code here
+console.log('Hello from custom code!');</textarea>
+                </div>
+            </div>
+            
+            <div class="flex justify-between mt-4">
+                <button id="saveConfig" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded transition">
+                    <i class="fas fa-save mr-2"></i>Save Script
+                </button>
+                <button id="executeScript" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded transition">
+                    <i class="fas fa-play mr-2"></i>Execute Script
+                </button>
+            </div>
+        </div>
+
+        <!-- Script History Section -->
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Script History</h2>
+                <button id="clearHistory" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition">
+                    <i class="fas fa-trash mr-2"></i>Clear All
+                </button>
+            </div>
+            <div class="border rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyList" class="bg-white divide-y divide-gray-200">
+                        <!-- History items will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div id="mainContent" class="max-w-6xl mx-auto main-content">
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h1 class="text-4xl font-bold mb-4">Where to visit in New York</h1>
+            <div class="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto mb-8">
+                <h2 class="text-3xl font-bold mb-4 text-gray-800">Exploring New York</h2>
+                <div class="mb-4 text-gray-500 flex items-center">
+                    <i class="fas fa-calendar-alt mr-2"></i> March 30, 2025
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-user mr-2"></i> by Samson Oyetola 
+                </div>
+                <img style="height:300px" width="100%" src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/28/5a/fe/49/hotel-belleclaire.jpg?w=1400&h=800&s=1" alt="New York Cityscape" class="w-full object-cover rounded-lg mb-6">
+
+                <div class="prose lg:prose-lg max-w-none">
+                    <section id="popular-hotels">
+                        <h2 class="text-2xl font-bold">Popular Hotels to Stay in New York</h2>
+                        <p>Discover the best hotels in New York for a comfortable and memorable stay. Browse through our top picks below.</p>
+                        
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0e/87/17/5a/good-story-rooftop-bar.jpg?w=1800&h=1000&s=1" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">The Fifth Avenue Hotel – A Gilded Age Fantasy Reimagined</h3>
+                            <p>
+                                Step into a world where history meets modern luxury at The Fifth Avenue Hotel. Nestled near Madison Square Park, this hotel occupies a restored 19th-century mansion complemented by a contemporary glass tower. Each of its 153 rooms and suites exudes opulence, featuring lavish marble bathrooms and curated art collections. 
+                            </p>
+                            <p>
+                                Café Carmellini, the hotel's Italian restaurant, has quickly become a culinary hotspot, offering exquisite dishes in a theatrical setting. Whether you're sipping cocktails at The Portrait Bar or exploring nearby NoMad attractions, The Fifth Avenue Hotel offers a blend of timeless elegance and modern flair.
+                            </p>
+                            <div class="stay22-embed-widget"></div>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                            <div class="stay22-embed-widget"></div>
+                        </div>
+                        
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2b/60/c1/76/the-tusk-bar.jpg?w=1400&h=800&s=1" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">The Wall Street Hotel – Nautical Elegance in the Financial District</h3>
+                            <p>
+                                Experience refined luxury at The Wall Street Hotel, situated in the heart of Manhattan's Financial District. Owned by the Paspaley family, renowned for their pearling legacy, the hotel infuses maritime elements throughout its design—from oyster-inspired watercolors to mother-of-pearl accents. 
+                            </p>
+                            <p>
+                                Rooms feature plush velvet furnishings, deep soaking tubs, and heated bathroom floors, ensuring a comfortable stay. Dine at La Marchande, the in-house brasserie led by Michelin-starred chef John Fraser, offering a menu rich in seafood delicacies.
+                                With its blend of historical charm and modern amenities, The Wall Street Hotel provides a serene retreat amidst the city's hustle.
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+                        
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://www.aman.com/sites/default/files/2022-12/Aman%20New%20York%2C%20USA%209.jpg" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">Aman New York – A Sanctuary of Tranquility in Midtown Manhattan</h3>
+                            <p>
+                                Nestled within the historic Crown Building on Fifth Avenue, Aman New York redefines urban luxury. This serene retreat offers 83 expansive suites, each adorned with Japanese-inspired design elements, gas fireplaces, and spa-like bathrooms. Guests can indulge in holistic wellness at the hotel's extensive spa facilities, including an indoor pool and treatment rooms. Dining options feature world-class cuisine, providing a culinary journey without leaving the premises.
+                            </p>
+                            <p> 
+                                Aman New York's central location places guests steps away from Central Park and the city's premier shopping destinations, making it an ideal haven for those seeking both relaxation and the vibrancy of the city.
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://www.firmdalehotels.com/media/ryvffvvp/240206_f_wsh_bar_0272_webresjpg.jpg?anchor=center&mode=crop&heightratio=0.839694656488549618320610687&width=1060&rnd=133528461284130000&sig=d84f89623cc0ede93e9f1f57899cf9d1" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">The Warren Street Hotel – Whimsical Elegance in Tribeca</h3>
+                            <p>
+                                Located in the heart of Tribeca, The Warren Street Hotel offers a delightful blend of British charm and contemporary design. Each of its 69 rooms is uniquely decorated with bold colors, eclectic furnishings, and floor-to-ceiling windows that flood the spaces with natural light. Some rooms feature private terraces, providing a tranquil escape amidst the city's bustle. 
+                            </p>
+                            <p> 
+                                Guests can unwind in the hotel's cozy drawing room or savor seasonal dishes at the on-site restaurant, which boasts a vibrant atmosphere and artful decor. With its prime location, The Warren Street Hotel serves as a perfect base for exploring Tribeca's art galleries, boutiques, and culinary scene.
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+
+
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://www.1hotels.com/sites/1hotels.com/files/styles/card/public/brandfolder/nn58hgrb8bsn3vspbcwvvr/Riverhouse_Suitew1620.png.webp?h=e4f440a4&itok=NsedTrMq" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">1 Hotel Brooklyn Bridge – Sustainable Luxury with Iconic Views</h3>
+                            <p>
+                                For those seeking eco-conscious luxury, 1 Hotel Brooklyn Bridge delivers an unparalleled experience. Located in Brooklyn Bridge Park, this hotel boasts panoramic views of the Manhattan skyline and the East River.
+                            </p>
+                            <p>
+                                Its design emphasizes sustainability, featuring reclaimed materials, living plant walls, and organic linens. Rooms are adorned with natural elements, and some even offer hammocks for guests to relax while taking in the scenery. The rooftop pool and lounge provide a perfect spot to unwind, while the hotel's proximity to Brooklyn's cultural hotspots adds to its appeal. 
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+                    </section>
+
+
+                    <section class="mt-6">
+                        <h2 class="text-2xl font-bold">Popular attractions in New York</h2>
+                        <p>Three must-visit attractions in New York City that promise unforgettable experiences</p>
+
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://lh3.googleusercontent.com/gps-cs-s/AC9h4nqgA6_jU3WxZEV9e-4Q14-uWYzwBledioGXtDGJW5qOJPapqEBI5Y8W5daARkOUYtQtuy_9boOauKF8QU4jKGZ8xJkFrFkYOEHLbB_kqoYL_r1u4vuDuwKpij2O9NAyabKHn-QgFA=s680-w680-h510-rw" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">Central Park – The Urban Oasis of New York</h3>
+                            <p>
+                                Spanning 843 acres in the heart of Manhattan, Central Park is more than just a park—it's the soul of New York City. Designed by Frederick Law Olmsted and Calvert Vaux in the 19th century, this green haven offers a serene escape from the city's hustle. Whether you're rowing on the lake, exploring the Ramble's winding paths, or enjoying a picnic on Sheep Meadow, there's something for everyone. The park is also home to the Central Park Zoo, the iconic Bethesda Terrace, and the Delacorte Theater, which hosts the beloved Shakespeare in the Park performances. With over 42 million visitors annually, Central Park is a testament to the city's dedication to preserving natural beauty amidst urban development.
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://lh3.googleusercontent.com/gps-cs-s/AC9h4noaJRE0nWkK7iZ847JwPsGOGIvcCKkgISq54XaSvPN6iGqArIpzuqMFo9k5mnbiS5qD-rQ_DVt5bzUoT5sV7tw6-Lg0SGcDMGLwvHvp1ZdtUtZEqjRI-5n5Hu7annfes4dnSE5C=s680-w680-h510-rw" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">The High Line – A Walk Above the City</h3>
+                            <p>
+                                Elevate your New York experience with a stroll along the High Line, a 1.45-mile-long elevated park built on a former railroad track. This innovative greenway offers panoramic views of the city and the Hudson River, complemented by beautifully landscaped gardens and art installations. As you walk, you'll pass through vibrant neighborhoods like Chelsea and the Meatpacking District, with easy access to attractions such as the Whitney Museum of American Art. The High Line is not just a park; it's a living, breathing example of urban revitalization and creativity. 
+
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+
+
+                        <div class="hotel mt-6">
+                            <img width="100%" style="height:200px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/New_york_times_square-terabass.jpg/1920px-New_york_times_square-terabass.jpg" class="w-full object-cover rounded-lg mb-4">
+                            <h3 class="text-2xl font-bold">Times Square – The Crossroads of the World</h3>
+                            <p>
+                                Experience the electric energy of Times Square, where the city's pulse is most palpable. Known for its dazzling billboards, Broadway theaters, and bustling crowds, Times Square is the epitome of New York's vibrant spirit. Whether you're catching a world-class performance, indulging in diverse culinary delights, or simply soaking in the ambiance, there's never a dull moment here. It's also the iconic site of the annual New Year's Eve ball drop, drawing millions of viewers worldwide.
+                            </p>
+                            <div class="mt-2">
+                                <a href="https://booking.com" class="text-blue-500 hover:text-blue-700">Book on Booking.com</a>
+                                <br>
+                                <a href="https://expedia.com" class="text-blue-500 hover:text-blue-700">Book on Expedia</a>
+                                <br>
+                                <a href="https://vrbo.com" class="text-blue-500 hover:text-blue-700">Book on Vrbo</a>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <footer>
+                <div class="block text-center"><small><a href="https://github.com/samtax01/micro-apps">Micro apps</a></small></div>
+            </footer>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast bg-green-500 text-white shadow-lg">Script applied successfully!</div>
+    
+    <!-- Tooltip container -->
+    <div id="tooltip" class="tooltip"></div>
+    
+    <script>
+        const scriptNameInput = document.getElementById('scriptName');
+        const scriptUrlInput = document.getElementById('scriptUrl');
+        const customCodeElement = document.getElementById('customCode');
+        const saveConfigBtn = document.getElementById('saveConfig');
+        const executeScriptBtn = document.getElementById('executeScript');
+        const historyList = document.getElementById('historyList');
+        const clearHistoryBtn = document.getElementById('clearHistory');
+        const toast = document.getElementById('toast');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mainContent = document.getElementById('mainContent');
+        const tooltip = document.getElementById('tooltip');
+        
+        // Sidebar toggle functionality
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            mainContent.classList.toggle('sidebar-open');
+        });
+        
+        // Function to create tooltips for anchor tags
+        function setupTooltips() {
+            const anchors = document.querySelectorAll('a');
+            
+            anchors.forEach(anchor => {
+                anchor.addEventListener('mouseenter', (e) => {
+                    const href = anchor.getAttribute('href');
+                    if (href) {
+                        tooltip.textContent = href;
+                        tooltip.style.opacity = '1';
+                        
+                        // Position the tooltip above the anchor
+                        const rect = anchor.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        
+                        // Calculate position
+                        tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+                        
+                        // Check if there's enough space above the element
+                        if (rect.top > tooltip.offsetHeight + 10) {
+                            // Position above
+                            tooltip.style.top = (rect.top + scrollTop) - tooltip.offsetHeight - 10 + 'px';
+                        } else {
+                            // Position below
+                            tooltip.style.top = (rect.bottom + scrollTop) + 10 + 'px';
+                            // Flip the arrow to point upward
+                            tooltip.classList.add('tooltip-bottom');
+                        }
+                        
+                        // Ensure tooltip is within viewport horizontally
+                        const tooltipRect = tooltip.getBoundingClientRect();
+                        if (tooltipRect.left < 0) {
+                            tooltip.style.left = '5px';
+                        } else if (tooltipRect.right > window.innerWidth) {
+                            tooltip.style.left = (window.innerWidth - tooltipRect.width - 5) + 'px';
+                        }
+                    }
+                });
+                
+                anchor.addEventListener('mouseleave', () => {
+                    tooltip.style.opacity = '0';
+                    tooltip.classList.remove('tooltip-bottom');
+                });
+            });
+        }
+        
+        // Function to show toast notification
+        function showToast(message, type = 'success') {
+            toast.textContent = message;
+            toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white shadow-lg`;
+            toast.classList.add('show-toast');
+            setTimeout(() => {
+                toast.classList.remove('show-toast');
+            }, 3000);
+        }
+        
+        // Function to load and display script history
+        function loadHistory() {
+            historyList.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('scriptHistory')) || [];
+            
+            if (history.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="3" class="px-6 py-4 text-center text-gray-500">
+                        No saved scripts found
+                    </td>
+                `;
+                historyList.appendChild(emptyRow);
+                return;
+            }
+            
+            history.forEach((config, index) => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-50 cursor-pointer";
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${config.name || 'Unnamed Script'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${config.url || 'No URL'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="load-btn text-blue-600 hover:text-blue-900 mr-3">
+                            <i class="fas fa-upload mr-1"></i>Load
+                        </button>
+                        <button class="delete-btn text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
+                    </td>
+                `;
+                
+                // Add event listeners to the buttons
+                row.querySelector('.load-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    applyConfig(config);
+                });
+                
+                row.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteHistory(index);
+                });
+                
+                // Add click event to the entire row
+                row.addEventListener('click', () => {
+                    applyConfig(config);
+                });
+                
+                historyList.appendChild(row);
+            });
+        }
+        
+        // Function to apply a saved configuration
+        function applyConfig(config) {
+            scriptNameInput.value = config.name || '';
+            scriptUrlInput.value = config.url || '';
+            customCodeElement.value = config.code || '';
+
+            // Execute the script immediately
+            if (config.url) {
+                document.appendChild(document.createElement('script')).src = config.url;
+            }
+
+            // Execute the custom code immediately
+            if (config.code) {
+                eval(config.code);
+            }
+            
+            showToast('Script loaded successfully');
+        }
+
+        // Function to execute the current script
+        function executeScript() {
+            const url = scriptUrlInput.value.trim();
+            const code = customCodeElement.value.trim();
+            
+            if (!code && !url) {
+                showToast('Nothing to execute. Please add code or URL.', 'error');
+                return;
+            }
+            
+            try {
+                if (url) {
+                    const script = document.createElement('script');
+                    script.src = url;
+                    script.onload = () => {
+                        showToast('External script loaded and executed');
+                    };
+                    script.onerror = () => {
+                        showToast('Failed to load external script', 'error');
+                    };
+                    document.body.appendChild(script);
+                }
+                
+                if (code) {
+                    eval(code);
+                    showToast('Custom code executed successfully');
+                }
+            } catch (error) {
+                console.error('Script execution error:', error);
+                showToast(`Execution error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Function to save the current configuration
+        function saveConfig() {
+            const name = scriptNameInput.value.trim();
+            const url = scriptUrlInput.value.trim();
+            const code = customCodeElement.value.trim();
+            
+            if (!name) {
+                showToast('Please enter a script name', 'error');
+                return;
+            }
+            
+            if (!code && !url) {
+                showToast('Please add code or URL before saving', 'error');
+                return;
+            }
+            
+            let history = JSON.parse(localStorage.getItem('scriptHistory')) || [];
+            
+            // Create new config object
+            const newConfig = { name, url, code };
+            
+            // Add to history
+            history.push(newConfig);
+            
+            // Save to localStorage
+            localStorage.setItem('scriptHistory', JSON.stringify(history));
+            
+            // Save as last used script
+            localStorage.setItem('lastUsedScript', JSON.stringify(newConfig));
+            
+            loadHistory();
+            showToast('Script saved successfully');
+        }
+        
+        // Function to delete a script from history
+        function deleteHistory(index) {
+            let history = JSON.parse(localStorage.getItem('scriptHistory')) || [];
+            
+            // Remove the item at the specified index
+            history.splice(index, 1);
+            
+            // Update localStorage
+            localStorage.setItem('scriptHistory', JSON.stringify(history));
+            
+            // Reload history list
+            loadHistory();
+            showToast('Script deleted successfully');
+        }
+        
+        // Function to clear all history
+        function clearHistory() {
+            if (confirm('Are you sure you want to delete all saved scripts?')) {
+                localStorage.removeItem('scriptHistory');
+                loadHistory();
+                showToast('All scripts deleted successfully');
+            }
+        }
+        
+        // Load the last used script when the page loads
+        function loadLastUsedScript() {
+            const lastScript = localStorage.getItem('lastUsedScript');
+            if (lastScript) {
+                const config = JSON.parse(lastScript);
+                applyConfig(config);
+            }
+        }
+        
+        // Event listeners
+        saveConfigBtn.addEventListener('click', saveConfig);
+        executeScriptBtn.addEventListener('click', executeScript);
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            loadLastUsedScript();
+            setupTooltips();
+        });
+
+
+		
+    </script>
+    
+    <!-- Href Monitor Script -->
+    <script src="assets/js/href-monitor.js"></script>
+</body>
+</html>

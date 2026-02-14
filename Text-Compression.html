@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encoder Decoder Web App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">GZIP Text Encoder & Decoder</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex border-b mb-4">
+                <button id="encode-tab-btn" class="tab-button active px-4 py-2 font-medium rounded-t-lg focus:outline-none">Encode</button>
+                <button id="decode-tab-btn" class="tab-button px-4 py-2 font-medium rounded-t-lg focus:outline-none">Decode</button>
+            </div>
+            
+            <!-- Encode Tab -->
+            <div id="encode-tab" class="tab-content active">
+                <div class="mb-4">
+                    <div class="flex justify-between">
+                        <label for="input-text" class="block text-gray-700 text-sm font-bold mb-2">Input Text:</label>
+                        <span id="input-size" class="text-gray-600 text-sm">0 bytes</span>
+                    </div>
+                    <textarea id="input-text" rows="10" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+                </div>
+                <div class="flex justify-between mb-4">
+                    <button id="encode-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Encode
+                    </button>
+                    <button id="clear-encode-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Clear
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <div class="flex justify-between">
+                        <label for="encoded-output" class="block text-gray-700 text-sm font-bold mb-2">Encoded Output:</label>
+                        <span id="encoded-size" class="text-gray-600 text-sm">0 bytes</span>
+                    </div>
+                    <textarea id="encoded-output" rows="10" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" readonly></textarea>
+                </div>
+                <button id="copy-encoded-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Copy to Clipboard
+                </button>
+            </div>
+            
+            <!-- Decode Tab -->
+            <div id="decode-tab" class="tab-content">
+                <div class="mb-4">
+                    <div class="flex justify-between">
+                        <label for="encoded-text" class="block text-gray-700 text-sm font-bold mb-2">Encoded Text:</label>
+                        <span id="encoded-input-size" class="text-gray-600 text-sm">0 bytes</span>
+                    </div>
+                    <textarea id="encoded-text" rows="10" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+                </div>
+                <div class="flex justify-between mb-4">
+                    <button id="decode-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Decode
+                    </button>
+                    <button id="clear-decode-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Clear
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <div class="flex justify-between">
+                        <label for="decoded-output" class="block text-gray-700 text-sm font-bold mb-2">Decoded Output:</label>
+                        <span id="decoded-size" class="text-gray-600 text-sm">0 bytes</span>
+                    </div>
+                    <textarea id="decoded-output" rows="10" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" readonly></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">HTML Preview:</label>
+                    <div id="html-preview" class="border rounded p-4 bg-gray-50 overflow-auto h-64"></div>
+                </div>
+                <button id="copy-decoded-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Copy to Clipboard
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-4">How it works</h2>
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold">Encoding:</h3>
+                <ol class="list-decimal pl-6">
+                    <li>Input text is converted to UTF-8 encoding</li>
+                    <li>The UTF-8 data is compressed using GZIP</li>
+                    <li>The compressed binary data is converted to Base64</li>
+                </ol>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold">Decoding:</h3>
+                <ol class="list-decimal pl-6">
+                    <li>Base64 input is converted back to binary data</li>
+                    <li>The binary data is decompressed using GZIP</li>
+                    <li>The decompressed data is converted from UTF-8 to text</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab functionality
+        document.getElementById('encode-tab-btn').addEventListener('click', function() {
+            document.getElementById('encode-tab').classList.add('active');
+            document.getElementById('decode-tab').classList.remove('active');
+            document.getElementById('encode-tab-btn').classList.add('active');
+            document.getElementById('decode-tab-btn').classList.remove('active');
+        });
+        
+        document.getElementById('decode-tab-btn').addEventListener('click', function() {
+            document.getElementById('decode-tab').classList.add('active');
+            document.getElementById('encode-tab').classList.remove('active');
+            document.getElementById('decode-tab-btn').classList.add('active');
+            document.getElementById('encode-tab-btn').classList.remove('active');
+        });
+        
+        // Helper functions for size calculations
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 bytes';
+            
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['bytes', 'KB', 'MB', 'GB', 'TB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        function updateSize(element, sizeElement) {
+            const bytes = new Blob([element.value]).size;
+            sizeElement.textContent = formatBytes(bytes);
+        }
+        
+        // Add event listeners for input fields to update sizes
+        document.getElementById('input-text').addEventListener('input', function() {
+            updateSize(this, document.getElementById('input-size'));
+        });
+        
+        document.getElementById('encoded-text').addEventListener('input', function() {
+            updateSize(this, document.getElementById('encoded-input-size'));
+        });
+        
+        // Function to update HTML preview
+        function updateHtmlPreview(html) {
+            const previewElement = document.getElementById('html-preview');
+            previewElement.innerHTML = '';
+            
+            try {
+                // Create a safe iframe for preview
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                previewElement.appendChild(iframe);
+                
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(html);
+                iframeDoc.close();
+            } catch (error) {
+                previewElement.textContent = `Error rendering HTML: ${error.message}`;
+            }
+        }
+        
+        // Encode functionality
+        async function getGzipBase64JsonPayload(html) {
+            try {
+                const utf8Data = new TextEncoder().encode(html);
+                const dataStream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(utf8Data);
+                        controller.close();
+                    },
+                });
+                const compressedStream = dataStream.pipeThrough(
+                    new CompressionStream("gzip"),
+                );
+                const arrayBuffer = await new Response(compressedStream).arrayBuffer();
+                const compressedData = new Uint8Array(arrayBuffer);
+                return btoa(String.fromCharCode.apply(null, compressedData));
+            } catch (error) {
+                console.error("Encoding error:", error);
+                return "Error: " + error.message;
+            }
+        }
+        
+        // For large arrays (avoid maximum call stack size exceeded)
+        function btoaChunked(uint8Array) {
+            let binary = '';
+            const chunk = 1024;
+            for (let i = 0; i < uint8Array.length; i += chunk) {
+                const slice = uint8Array.subarray(i, Math.min(i + chunk, uint8Array.length));
+                binary += String.fromCharCode.apply(null, slice);
+            }
+            return btoa(binary);
+        }
+        
+        // Decode functionality
+        async function decodeGzipBase64(base64String) {
+            try {
+                // Convert base64 to binary
+                const binaryString = atob(base64String);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                // Decompress with DecompressionStream
+                const ds = new DecompressionStream('gzip');
+                const decompressedStream = new Response(bytes).body.pipeThrough(ds);
+                const result = await new Response(decompressedStream).arrayBuffer();
+                
+                // Convert back to text
+                return new TextDecoder().decode(result);
+            } catch (error) {
+                console.error("Decoding error:", error);
+                return "Error: " + error.message;
+            }
+        }
+        
+        // Button event listeners
+        document.getElementById('encode-btn').addEventListener('click', async function() {
+            const inputText = document.getElementById('input-text').value;
+            if (inputText) {
+                const encodedResult = await getGzipBase64JsonPayload(inputText);
+                document.getElementById('encoded-output').value = encodedResult;
+                updateSize(document.getElementById('encoded-output'), document.getElementById('encoded-size'));
+            }
+        });
+        
+        document.getElementById('decode-btn').addEventListener('click', async function() {
+            const encodedText = document.getElementById('encoded-text').value;
+            if (encodedText) {
+                try {
+                    const decodedResult = await decodeGzipBase64(encodedText);
+                    document.getElementById('decoded-output').value = decodedResult;
+                    updateSize(document.getElementById('decoded-output'), document.getElementById('decoded-size'));
+                    
+                    // Update HTML preview
+                    updateHtmlPreview(decodedResult);
+                } catch (error) {
+                    document.getElementById('decoded-output').value = "Error decoding: " + error.message;
+                    document.getElementById('html-preview').innerHTML = "Error: Could not preview HTML";
+                }
+            }
+        });
+        
+        // Clear buttons
+        document.getElementById('clear-encode-btn').addEventListener('click', function() {
+            document.getElementById('input-text').value = '';
+            document.getElementById('encoded-output').value = '';
+            document.getElementById('input-size').textContent = '0 bytes';
+            document.getElementById('encoded-size').textContent = '0 bytes';
+        });
+        
+        document.getElementById('clear-decode-btn').addEventListener('click', function() {
+            document.getElementById('encoded-text').value = '';
+            document.getElementById('decoded-output').value = '';
+            document.getElementById('encoded-input-size').textContent = '0 bytes';
+            document.getElementById('decoded-size').textContent = '0 bytes';
+            document.getElementById('html-preview').innerHTML = '';
+        });
+        
+        // Copy buttons
+        document.getElementById('copy-encoded-btn').addEventListener('click', function() {
+            const encodedOutput = document.getElementById('encoded-output');
+            encodedOutput.select();
+            document.execCommand('copy');
+            
+            const originalText = this.textContent;
+            this.textContent = 'Copied!';
+            setTimeout(() => {
+                this.textContent = originalText;
+            }, 1500);
+        });
+        
+        document.getElementById('copy-decoded-btn').addEventListener('click', function() {
+            const decodedOutput = document.getElementById('decoded-output');
+            decodedOutput.select();
+            document.execCommand('copy');
+            
+            const originalText = this.textContent;
+            this.textContent = 'Copied!';
+            setTimeout(() => {
+                this.textContent = originalText;
+            }, 1500);
+        });
+
+        // Load the sample data if available
+        window.onload = function() {
+            const sampleData = document.querySelector('document_content')?.textContent;
+            if (sampleData) {
+                document.getElementById('encoded-text').value = sampleData;
+                updateSize(document.getElementById('encoded-text'), document.getElementById('encoded-input-size'));
+            }
+        };
+    </script>
+</body>
+</html>
